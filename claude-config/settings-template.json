@@ -1,0 +1,62 @@
+{
+  "mcpServers": {
+    "voicevox": {
+      "command": "npx",
+      "args": ["-y", "@t09tanaka/mcp-simple-voicevox"]
+    },
+    "zundamon-ui": {
+      "command": "node",
+      "args": ["{{PROJECT_DIR}}/server/index.js", "--mcp"]
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{CLAUDE_SCRIPTS_DIR}}/status-update.js\" --status working",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{CLAUDE_SCRIPTS_DIR}}/status-update.js\" --status working",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{CLAUDE_SCRIPTS_DIR}}/status-update.js\" --status idle",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"{{CLAUDE_SCRIPTS_DIR}}/permission-notify.js\"",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

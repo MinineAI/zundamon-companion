@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ずんだもんコンパニオン</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="room" id="room">
+      <!-- 窓 -->
+      <div class="window">
+        <div class="window-sky" id="window-sky">
+          <div class="stars"></div>
+        </div>
+        <div class="window-cross"></div>
+      </div>
+
+      <!-- 棚 -->
+      <div class="shelf">
+        <div class="shelf-item book"></div>
+        <div class="shelf-item plant"></div>
+        <div class="shelf-item clock" id="clock">12:00</div>
+      </div>
+
+      <!-- パーティクル（complete 時に表示） -->
+      <div class="particles" id="particles">
+        <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
+      </div>
+
+      <!-- ずんだもんキャラクター -->
+      <div class="character-area" id="character-area">
+        <!-- 吹き出し -->
+        <div class="bubble" id="bubble">
+          <span id="bubble-text">&#x5f85;&#x6a5f;&#x4e2d;&#x306a;&#x306e;&#x3060;</span>
+        </div>
+
+        <!-- キャラクター画像 -->
+        <div class="character" id="character">
+          <img src="/zundamon.png" id="zundamon-img" alt="ずんだもん" />
+        </div>
+      </div>
+
+      <!-- 机 -->
+      <div class="desk">
+        <div class="desk-top"></div>
+        <div class="desk-drawer-left"></div>
+        <div class="desk-drawer-right"></div>
+      </div>
+
+      <!-- ステータスバー（2段構成） -->
+      <div class="status-bar">
+        <!-- 上段：ステータス + 接続 -->
+        <div class="status-bar-top">
+          <div class="status-badge" id="status-badge">
+            <span class="status-dot" id="status-dot"></span>
+            <span id="status-text">待機中</span>
+          </div>
+          <div class="connection-indicator" id="connection-indicator">
+            <span class="conn-dot" id="conn-dot"></span>
+            <span id="conn-text">接続中...</span>
+          </div>
+        </div>
+
+        <!-- 下段：使用量ウィジェット -->
+        <div class="usage-widget" id="usage-widget">
+          <div class="usage-row">
+            <div class="usage-left">
+              <span class="usage-icon">◆</span>
+              <span class="usage-label">5h 使用量</span>
+              <span class="usage-tokens" id="usage-tokens">読込中...</span>
+            </div>
+            <span class="usage-reset" id="usage-reset"></span>
+          </div>
+          <div class="usage-bar-wrap" id="usage-bar-wrap">
+            <div class="usage-bar" id="usage-bar" style="width: 0%"></div>
+          </div>
+          <div class="usage-weekly-row">
+            <span class="usage-weekly" id="usage-weekly"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
