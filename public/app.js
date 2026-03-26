@@ -8,30 +8,7 @@ const STATUS_LABELS = {
   break:    "休憩中",
 };
 
-// プログレスバーの最大トークン数（0 = バーを時間ベースで表示しない）
-// ご自身のプランの制限値に合わせて変更してください
-// 例: Max5h プランなら 140000 程度
-const TOKEN_LIMIT = 0;
-
-// ===== 時刻帯（窓の外の空の色） =====
-const TIME_PERIODS = [
-  { name: "dawn",    start: 5,  end: 8  }, // 夜明け: オレンジ〜ピンク
-  { name: "morning", start: 8,  end: 12 }, // 朝〜昼: 水色
-  { name: "noon",    start: 12, end: 17 }, // 昼: 明るい青
-  { name: "evening", start: 17, end: 20 }, // 夕: オレンジ〜紫
-  { name: "night",   start: 20, end: 24 }, // 夜: 濃紺+星
-  { name: "night",   start: 0,  end: 5  }, // 深夜
-];
-
-function updateTimePeriod() {
-  const h = new Date().getHours();
-  const period = TIME_PERIODS.find((p) => h >= p.start && h < p.end) || TIME_PERIODS[4];
-  const room = document.getElementById("room");
-  if (room) room.dataset.time = period.name;
-}
-
-updateTimePeriod();
-setInterval(updateTimePeriod, 60000); // 1分ごとに更新
+const TOKEN_LIMIT = 0; // 0 = プログレスバー非表示
 
 // ===== 時計 =====
 function updateClock() {
@@ -44,6 +21,54 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10000);
 
+// ===== セッション履歴 =====
+const sessionHistory = [];
+let currentStatusStart = Date.now();
+
+function addToHistory(status, message) {
+  const now = Date.now();
+  const elapsed = Math.round((now - currentStatusStart) / 1000);
+
+  // 直前のエントリに duration を記録
+  if (sessionHistory.length > 0) {
+    sessionHistory[0].duration = elapsed;
+  }
+
+  sessionHistory.unshift({ time: new Date(now), status, message, duration: null });
+  if (sessionHistory.length > 12) sessionHistory.pop();
+  currentStatusStart = now;
+  renderHistory();
+}
+
+function formatDuration(sec) {
+  if (sec == null || sec <= 0) return "--";
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.round(sec / 60)}min`;
+  return `${Math.floor(sec / 3600)}h${Math.round((sec % 3600) / 60)}m`;
+}
+
+function renderHistory() {
+  const list = document.getElementById("history-list");
+  if (!list) return;
+  if (sessionHistory.length === 0) {
+    list.innerHTML = '<div class="history-empty">まだ作業がありません</div>';
+    return;
+  }
+  list.innerHTML = sessionHistory
+    .map((item, i) => {
+      const h = String(item.time.getHours()).padStart(2, "0");
+      const m = String(item.time.getMinutes()).padStart(2, "0");
+      const dur = i === 0 ? "現在" : formatDuration(item.duration);
+      return `<div class="history-item ${item.status}">
+        <span class="history-time">${h}:${m}</span>
+        <span class="history-dot"></span>
+        <span class="history-msg">${item.message}</span>
+        <span class="history-dur">${dur}</span>
+      </div>`;
+    })
+    .join("");
+}
+
 // ===== ステータスUI更新 =====
 function updateUI(status, message) {
   const bubble     = document.getElementById("bubble");
@@ -51,33 +76,43 @@ function updateUI(status, message) {
   const badge      = document.getElementById("status-badge");
   const statusText = document.getElementById("status-text");
   const character  = document.getElementById("character");
-  const room       = document.getElementById("room");
+  const app        = document.getElementById("app");
   const charArea   = document.getElementById("character-area");
+  const statusSec  = document.getElementById("status-section");
 
-  // メッセージ
   bubbleText.textContent = message;
 
-  // クラス付与（全要素）
+  // クラス付け替え
   STATUSES.forEach((s) => {
     bubble.classList.remove(s);
     badge.classList.remove(s);
     character.classList.remove(s);
-    room.classList.remove(s);
+    app.classList.remove(s);
     charArea.classList.remove(s);
+    if (statusSec) statusSec.classList.remove(s);
   });
   bubble.classList.add(status);
   badge.classList.add(status);
   character.classList.add(status);
-  room.classList.add(status);
+  app.classList.add(status);
   charArea.classList.add(status);
+  if (statusSec) statusSec.classList.add(status);
 
-  // ステータステキスト
   statusText.textContent = STATUS_LABELS[status] ?? status;
 
-  // 吹き出しのアニメーションリセット
+  // 吹き出しアニメーションリセット
   bubble.style.animation = "none";
-  bubble.offsetHeight; // reflow
+  bubble.offsetHeight;
   bubble.style.animation = "";
+
+  // 履歴追加（ステータスまたはメッセージが変化した場合のみ）
+  if (
+    sessionHistory.length === 0 ||
+    sessionHistory[0].status !== status ||
+    sessionHistory[0].message !== message
+  ) {
+    addToHistory(status, message);
+  }
 }
 
 // ===== 使用量ウィジェット =====
@@ -87,54 +122,48 @@ function formatTokens(n) {
 }
 
 function updateUsageWidget(data) {
-  const tokensEl  = document.getElementById("usage-tokens");
-  const resetEl   = document.getElementById("usage-reset");
-  const barEl     = document.getElementById("usage-bar");
-  const wrapEl    = document.getElementById("usage-bar-wrap");
-  const widgetEl  = document.getElementById("usage-widget");
+  const tokensEl = document.getElementById("usage-tokens");
+  const resetEl  = document.getElementById("usage-reset");
+  const barEl    = document.getElementById("usage-bar");
+  const wrapEl   = document.getElementById("usage-bar-wrap");
+  const widgetEl = document.getElementById("usage-widget");
+  const weeklyEl = document.getElementById("usage-weekly");
 
   if (!data || data.error || data.totalTokens == null) {
-    widgetEl.style.opacity = "0.45";
-    tokensEl.textContent = "--";
-    resetEl.textContent  = "";
-    barEl.style.width    = "0%";
+    if (widgetEl) widgetEl.style.opacity = "0.4";
+    if (tokensEl) tokensEl.textContent = "--";
+    if (resetEl)  resetEl.textContent  = "";
+    if (barEl)    barEl.style.width    = "0%";
     return;
   }
 
-  widgetEl.style.opacity = "1";
-  tokensEl.textContent = formatTokens(data.totalTokens);
+  if (widgetEl) widgetEl.style.opacity = "1";
+  if (tokensEl) tokensEl.textContent = formatTokens(data.totalTokens);
 
-  // 5h リセット残り時間
-  if (data.remainingFormatted) {
-    resetEl.textContent = data.remainingFormatted;
+  if (resetEl) {
+    resetEl.textContent = data.remainingFormatted
+      ? data.remainingFormatted
+      : data.messageCount === 0 ? "使用なし" : "";
     resetEl.title = data.resetAt
       ? "5hリセット: " + new Date(data.resetAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
       : "";
-  } else {
-    resetEl.textContent = data.messageCount === 0 ? "使用なし" : "";
   }
 
-  // 週次リセット表示（要素があれば）
-  const weeklyEl = document.getElementById("usage-weekly");
   if (weeklyEl) {
-    if (data.weeklyRemainingFormatted) {
-      weeklyEl.textContent = "週次 " + data.weeklyRemainingFormatted;
-      weeklyEl.title = data.weeklyResetAt
-        ? "週次リセット(火14時JST): " + new Date(data.weeklyResetAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-        : "";
-    } else {
-      weeklyEl.textContent = "";
-    }
+    weeklyEl.textContent = data.weeklyRemainingFormatted
+      ? "週次 " + data.weeklyRemainingFormatted
+      : "";
+    weeklyEl.title = data.weeklyResetAt
+      ? "週次リセット(火14時JST): " + new Date(data.weeklyResetAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
+      : "";
   }
 
-  // プログレスバー
   if (TOKEN_LIMIT > 0) {
     const pct = Math.min(100, (data.totalTokens / TOKEN_LIMIT) * 100);
-    barEl.style.width = pct + "%";
-    wrapEl.style.display = "block";
+    if (barEl)  barEl.style.width      = pct + "%";
+    if (wrapEl) wrapEl.style.display   = "block";
   } else {
-    // TOKEN_LIMIT 未設定時：バー非表示
-    wrapEl.style.display = "none";
+    if (wrapEl) wrapEl.style.display   = "none";
   }
 }
 
@@ -145,11 +174,10 @@ function pollUsage() {
     .catch(() => updateUsageWidget(null));
 }
 
-// 起動時と60秒ごとにポーリング
 pollUsage();
 setInterval(pollUsage, 60000);
 
-// ===== 初期状態取得 =====
+// ===== 初期ステータス取得 =====
 fetch("/api/status")
   .then((r) => r.json())
   .then((data) => updateUI(data.status, data.message))
@@ -168,13 +196,13 @@ function connectSSE() {
   });
 
   es.onopen = () => {
-    connDot.className = "conn-dot connected";
-    connText.textContent = "接続中";
+    if (connDot)  connDot.className    = "conn-dot connected";
+    if (connText) connText.textContent = "接続中";
   };
 
   es.onerror = () => {
-    connDot.className = "conn-dot";
-    connText.textContent = "切断";
+    if (connDot)  connDot.className    = "conn-dot";
+    if (connText) connText.textContent = "切断";
     es.close();
     setTimeout(connectSSE, 3000);
   };

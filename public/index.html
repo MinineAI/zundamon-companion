@@ -7,79 +7,82 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="room" id="room">
-      <!-- 窓 -->
-      <div class="window">
-        <div class="window-sky" id="window-sky">
-          <div class="stars"></div>
-        </div>
-        <div class="window-cross"></div>
-      </div>
+    <div class="app" id="app">
 
-      <!-- 棚 -->
-      <div class="shelf">
-        <div class="shelf-item book"></div>
-        <div class="shelf-item plant"></div>
-        <div class="shelf-item clock" id="clock">12:00</div>
-      </div>
+      <!-- ===== 左パネル: キャラクターエリア ===== -->
+      <div class="left-panel" id="left-panel">
 
-      <!-- パーティクル（complete 時に表示） -->
-      <div class="particles" id="particles">
-        <span></span><span></span><span></span>
-        <span></span><span></span><span></span>
-      </div>
-
-      <!-- ずんだもんキャラクター -->
-      <div class="character-area" id="character-area">
-        <!-- 吹き出し -->
-        <div class="bubble" id="bubble">
-          <span id="bubble-text">&#x5f85;&#x6a5f;&#x4e2d;&#x306a;&#x306e;&#x3060;</span>
+        <!-- 部屋装飾 (窓 + 時計) -->
+        <div class="room-deco">
+          <div class="window">
+            <div class="window-sky" id="window-sky"></div>
+            <div class="window-cross"></div>
+          </div>
+          <div class="room-clock" id="clock">12:00</div>
         </div>
 
-        <!-- キャラクター画像 -->
-        <div class="character" id="character">
-          <img src="/zundamon.png" id="zundamon-img" alt="ずんだもん" />
+        <!-- パーティクル (complete 時) -->
+        <div class="particles" id="particles">
+          <span></span><span></span><span></span>
+          <span></span><span></span><span></span>
+        </div>
+
+        <!-- キャラクター + 吹き出し -->
+        <div class="character-area" id="character-area">
+          <div class="bubble" id="bubble">
+            <span id="bubble-text">待機中なのだ</span>
+          </div>
+          <div class="character" id="character">
+            <img src="/zundamon.png" id="zundamon-img" alt="ずんだもん" />
+          </div>
+        </div>
+
+        <!-- 机 -->
+        <div class="desk">
+          <div class="desk-top"></div>
+          <div class="desk-drawers">
+            <div class="desk-drawer"></div>
+            <div class="desk-drawer"></div>
+          </div>
         </div>
       </div>
 
-      <!-- 机 -->
-      <div class="desk">
-        <div class="desk-top"></div>
-        <div class="desk-drawer-left"></div>
-        <div class="desk-drawer-right"></div>
-      </div>
+      <!-- ===== 右パネル: ダッシュボード ===== -->
+      <div class="right-panel">
 
-      <!-- ステータスバー（2段構成） -->
-      <div class="status-bar">
-        <!-- 上段：ステータス + 接続 -->
-        <div class="status-bar-top">
+        <!-- ステータス + 接続 -->
+        <div class="dash-section status-section" id="status-section">
           <div class="status-badge" id="status-badge">
             <span class="status-dot" id="status-dot"></span>
             <span id="status-text">待機中</span>
           </div>
-          <div class="connection-indicator" id="connection-indicator">
+          <div class="connection-indicator">
             <span class="conn-dot" id="conn-dot"></span>
             <span id="conn-text">接続中...</span>
           </div>
         </div>
 
-        <!-- 下段：使用量ウィジェット -->
-        <div class="usage-widget" id="usage-widget">
-          <div class="usage-row">
-            <div class="usage-left">
-              <span class="usage-icon">◆</span>
-              <span class="usage-label">5h 使用量</span>
-              <span class="usage-tokens" id="usage-tokens">読込中...</span>
-            </div>
+        <!-- 使用量 -->
+        <div class="dash-section usage-section" id="usage-widget">
+          <div class="section-label">◆ 5h 使用量</div>
+          <div class="usage-main-row">
+            <span class="usage-tokens" id="usage-tokens">読込中...</span>
             <span class="usage-reset" id="usage-reset"></span>
           </div>
           <div class="usage-bar-wrap" id="usage-bar-wrap">
             <div class="usage-bar" id="usage-bar" style="width: 0%"></div>
           </div>
-          <div class="usage-weekly-row">
-            <span class="usage-weekly" id="usage-weekly"></span>
+          <div class="usage-weekly" id="usage-weekly"></div>
+        </div>
+
+        <!-- セッション履歴 -->
+        <div class="dash-section history-section">
+          <div class="section-label">📋 直近の作業</div>
+          <div class="history-list" id="history-list">
+            <div class="history-empty">まだ作業がありません</div>
           </div>
         </div>
+
       </div>
     </div>
 
