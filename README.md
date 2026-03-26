@@ -152,12 +152,6 @@ zundamon-companion/
 
 ---
 
-## 🎨 キャラクター素材
-
-立ち絵素材：[坂本アヒルさん](https://twitter.com/sakamoto_ahr) 制作のフリー素材を使用
-
----
-
 ## 📄 ライセンス
 
 MIT License
