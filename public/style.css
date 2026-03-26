@@ -15,7 +15,7 @@ body {
 
 /* ===== メインコンテナ (600×460, 2カラム) ===== */
 .app {
-  width: 600px;
+  width: 640px;
   height: 460px;
   display: flex;
   border-radius: 18px;
@@ -32,7 +32,7 @@ body {
 
 /* ===== 左パネル: キャラクター部屋 (240px) ===== */
 .left-panel {
-  width: 240px;
+  width: 270px;
   flex-shrink: 0;
   position: relative;
   overflow: hidden;
@@ -220,8 +220,8 @@ body {
 
 /* ===== キャラクター画像 ===== */
 .character {
-  width: 160px;
-  height: 195px;
+  width: 210px;
+  height: 250px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -233,7 +233,11 @@ body {
   object-fit: contain;
   object-position: bottom center;
   filter: drop-shadow(0 8px 16px rgba(0,0,0,0.4));
-  transition: filter 0.4s ease;
+  transition: filter 0.4s ease, opacity 0.25s ease;
+}
+
+#zundamon-img.switching {
+  opacity: 0;
 }
 
 .character-area.working  #zundamon-img { filter: drop-shadow(0 8px 22px rgba(33,150,243,0.65)); }

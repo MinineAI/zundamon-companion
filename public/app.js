@@ -1,5 +1,49 @@
 // ===== 定数 =====
 const STATUSES = ["idle", "working", "complete", "error", "break"];
+
+// ステータス別キャラクター画像
+// 対応する PNG を public/ に置くと自動的に切り替わります
+// 例: zundamon-working.png, zundamon-complete.png など
+const STATUS_IMAGES = {
+  idle:     "/zundamon.png",
+  working:  "/zundamon-working.png",
+  complete: "/zundamon-complete.png",
+  error:    "/zundamon-error.png",
+  break:    "/zundamon-break.png",
+};
+const DEFAULT_IMAGE = "/zundamon.png";
+
+let currentImageSrc = DEFAULT_IMAGE;
+
+function switchCharacterImage(status) {
+  const img = document.getElementById("zundamon-img");
+  if (!img) return;
+  const targetSrc = STATUS_IMAGES[status] || DEFAULT_IMAGE;
+  if (targetSrc === currentImageSrc) return;
+
+  // フェードアウト → 画像読み込み → フェードイン
+  const testImg = new Image();
+  testImg.onload = () => {
+    img.classList.add("switching");
+    setTimeout(() => {
+      img.src = targetSrc;
+      currentImageSrc = targetSrc;
+      img.classList.remove("switching");
+    }, 250);
+  };
+  testImg.onerror = () => {
+    // ステータス別画像がなければデフォルトに戻す
+    if (currentImageSrc !== DEFAULT_IMAGE) {
+      img.classList.add("switching");
+      setTimeout(() => {
+        img.src = DEFAULT_IMAGE;
+        currentImageSrc = DEFAULT_IMAGE;
+        img.classList.remove("switching");
+      }, 250);
+    }
+  };
+  testImg.src = targetSrc;
+}
 const STATUS_LABELS = {
   idle:     "待機中",
   working:  "作業中",
@@ -104,6 +148,9 @@ function updateUI(status, message) {
   bubble.style.animation = "none";
   bubble.offsetHeight;
   bubble.style.animation = "";
+
+  // ステータス別画像切替
+  switchCharacterImage(status);
 
   // 履歴追加（ステータスまたはメッセージが変化した場合のみ）
   if (
