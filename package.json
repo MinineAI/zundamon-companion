@@ -13,5 +13,11 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.27.1",
     "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "ag-psd": "^30.1.0",
+    "canvas": "^3.2.2",
+    "jimp": "^0.22.10",
+    "psd": "^3.4.0"
   }
 }

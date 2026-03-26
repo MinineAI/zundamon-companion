@@ -68,17 +68,28 @@ setInterval(updateClock, 10000);
 // ===== セッション履歴 =====
 const sessionHistory = [];
 let currentStatusStart = Date.now();
+let lastKnownTokens = 0; // 最新の累計トークン数
 
 function addToHistory(status, message) {
   const now = Date.now();
   const elapsed = Math.round((now - currentStatusStart) / 1000);
 
-  // 直前のエントリに duration を記録
+  // 直前のエントリに duration とトークン差分を記録
   if (sessionHistory.length > 0) {
     sessionHistory[0].duration = elapsed;
+    // 前エントリ開始時点からの差分トークン数
+    const delta = lastKnownTokens - (sessionHistory[0].tokensStart || 0);
+    sessionHistory[0].tokensDelta = delta > 0 ? delta : null;
   }
 
-  sessionHistory.unshift({ time: new Date(now), status, message, duration: null });
+  sessionHistory.unshift({
+    time: new Date(now),
+    status,
+    message,
+    duration: null,
+    tokensStart: lastKnownTokens, // このエントリ開始時点のトークン数
+    tokensDelta: null,
+  });
   if (sessionHistory.length > 12) sessionHistory.pop();
   currentStatusStart = now;
   renderHistory();
@@ -89,6 +100,12 @@ function formatDuration(sec) {
   if (sec < 60) return `${sec}s`;
   if (sec < 3600) return `${Math.round(sec / 60)}min`;
   return `${Math.floor(sec / 3600)}h${Math.round((sec % 3600) / 60)}m`;
+}
+
+function formatTokensDelta(n) {
+  if (n == null || n <= 0) return "";
+  if (n >= 1000) return `+${(n / 1000).toFixed(1)}K`;
+  return `+${n}`;
 }
 
 function renderHistory() {
@@ -103,11 +120,12 @@ function renderHistory() {
       const h = String(item.time.getHours()).padStart(2, "0");
       const m = String(item.time.getMinutes()).padStart(2, "0");
       const dur = i === 0 ? "現在" : formatDuration(item.duration);
+      const tok = i === 0 ? "" : formatTokensDelta(item.tokensDelta);
       return `<div class="history-item ${item.status}">
         <span class="history-time">${h}:${m}</span>
         <span class="history-dot"></span>
         <span class="history-msg">${item.message}</span>
-        <span class="history-dur">${dur}</span>
+        <span class="history-dur">${dur}</span>${tok ? `<span class="history-tok">${tok}</span>` : ""}
       </div>`;
     })
     .join("");
@@ -184,6 +202,12 @@ function updateUsageWidget(data) {
     return;
   }
 
+  // 累計トークン数を更新し、履歴の現在エントリのトークン差分も再描画
+  if (data.totalTokens !== lastKnownTokens) {
+    lastKnownTokens = data.totalTokens;
+    renderHistory(); // トークン情報を反映して再描画
+  }
+
   if (widgetEl) widgetEl.style.opacity = "1";
   if (tokensEl) tokensEl.textContent = formatTokens(data.totalTokens);
 
@@ -239,6 +263,8 @@ function connectSSE() {
 
   es.addEventListener("statusUpdate", (e) => {
     const data = JSON.parse(e.data);
+    // ステータス変化時に即座に使用量を取得（トークン差分を正確にキャプチャ）
+    pollUsage();
     updateUI(data.status, data.message);
   });
 

@@ -75,54 +75,12 @@ body {
 }
 
 /* ===== 部屋装飾 (窓 + 時計) ===== */
+/* 時計のみ右上に表示 */
 .room-deco {
   position: absolute;
-  top: 16px;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding: 0 14px;
+  top: 12px;
+  right: 12px;
   z-index: 2;
-}
-
-.window {
-  width: 68px;
-  height: 58px;
-  border-radius: 4px;
-  border: 3px solid #7a5c3a;
-  overflow: hidden;
-  position: relative;
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.3), 0 4px 10px rgba(0,0,0,0.4);
-}
-
-.window-sky {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, #050518 0%, #0a0f35 55%, #12204e 100%);
-}
-
-.window-cross {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-.window-cross::before,
-.window-cross::after {
-  content: "";
-  position: absolute;
-  background: rgba(122, 92, 58, 0.85);
-}
-.window-cross::before {
-  top: 0; bottom: 0;
-  left: 50%; transform: translateX(-50%);
-  width: 2px;
-}
-.window-cross::after {
-  left: 0; right: 0;
-  top: 50%; transform: translateY(-50%);
-  height: 2px;
 }
 
 .room-clock {
@@ -144,13 +102,13 @@ body {
 /* ===== キャラクターエリア ===== */
 .character-area {
   position: absolute;
-  bottom: 95px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: 210px;
+  width: 260px;
   z-index: 2;
 }
 
@@ -220,8 +178,8 @@ body {
 
 /* ===== キャラクター画像 ===== */
 .character {
-  width: 210px;
-  height: 250px;
+  width: 260px;
+  height: 400px;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -277,7 +235,7 @@ body {
 /* ===== パーティクル ===== */
 .particles {
   position: absolute;
-  bottom: 120px;
+  bottom: 200px;
   left: 50%;
   transform: translateX(-50%);
   width: 140px;
@@ -581,4 +539,12 @@ body {
   font-size: 10px;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
+}
+
+.history-tok {
+  color: #2a6;
+  font-size: 10px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
 }
