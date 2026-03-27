@@ -268,6 +268,11 @@ function connectSSE() {
     updateUI(data.status, data.message);
   });
 
+  es.addEventListener("permissionRequest", (e) => {
+    const data = JSON.parse(e.data);
+    showPermSheet(data);
+  });
+
   es.onopen = () => {
     if (connDot)  connDot.className    = "conn-dot connected";
     if (connText) connText.textContent = "接続中";
@@ -282,3 +287,64 @@ function connectSSE() {
 }
 
 connectSSE();
+
+// ===== 権限リクエスト ボトムシート =====
+let _permTimerInterval = null;
+
+function showPermSheet({ id, tool_name, preview }) {
+  const sheet    = document.getElementById("perm-sheet");
+  const toolEl   = document.getElementById("perm-tool");
+  const previewEl= document.getElementById("perm-preview");
+  const timerEl  = document.getElementById("perm-timer");
+  const allowBtn = document.getElementById("perm-allow");
+  const denyBtn  = document.getElementById("perm-deny");
+  if (!sheet) return;
+
+  // コンテンツ設定
+  toolEl.textContent    = "🛠 " + (tool_name || "Unknown");
+  previewEl.textContent = (preview || "").slice(0, 120);
+
+  // タイマーリセット
+  clearInterval(_permTimerInterval);
+  let remaining = 60;
+  timerEl.textContent = remaining + "s";
+  _permTimerInterval = setInterval(() => {
+    remaining--;
+    timerEl.textContent = remaining + "s";
+    if (remaining <= 0) {
+      clearInterval(_permTimerInterval);
+      respondPerm(id, "deny");
+    }
+  }, 1000);
+
+  // ボタン
+  allowBtn.onclick = () => respondPerm(id, "allow");
+  denyBtn.onclick  = () => respondPerm(id, "deny");
+
+  // キャラクター吹き出しを更新
+  const bubble = document.getElementById("bubble-text");
+  if (bubble) bubble.textContent = "\u78ba\u8a8d\u3057\u3066\u307b\u3057\u3044\u306e\u3060\uff01";
+
+  // シートを開く
+  sheet.classList.add("open");
+  sheet.setAttribute("aria-hidden", "false");
+}
+
+function hidePermSheet() {
+  const sheet = document.getElementById("perm-sheet");
+  if (!sheet) return;
+  clearInterval(_permTimerInterval);
+  sheet.classList.remove("open");
+  sheet.setAttribute("aria-hidden", "true");
+}
+
+async function respondPerm(id, decision) {
+  hidePermSheet();
+  try {
+    await fetch("/api/permission/respond", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, decision }),
+    });
+  } catch (_) {}
+}

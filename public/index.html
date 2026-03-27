@@ -72,6 +72,25 @@
         </div>
 
       </div>
+
+      <!-- 権限リクエスト ボトムシート（危険操作のみ表示） -->
+      <div id="perm-sheet" class="perm-sheet" aria-hidden="true">
+        <div class="perm-drag-bar"></div>
+        <div class="perm-header">
+          <span class="perm-title">🔔 権限リクエスト</span>
+          <span class="perm-timer" id="perm-timer">60s</span>
+        </div>
+        <div class="perm-meta">
+          <span class="perm-tool" id="perm-tool"></span>
+          <span class="perm-badge">🔴 危険操作</span>
+        </div>
+        <pre class="perm-preview" id="perm-preview"></pre>
+        <div class="perm-actions">
+          <button class="perm-btn perm-allow" id="perm-allow">✅ 許可する</button>
+          <button class="perm-btn perm-deny"  id="perm-deny">❌ 拒否する</button>
+        </div>
+      </div>
+
     </div>
 
     <script src="app.js"></script>

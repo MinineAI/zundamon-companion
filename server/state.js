@@ -6,6 +6,8 @@ const state = {
   message: "\u5f85\u6a5f\u4e2d\u306a\u306e\u3060",
   timestamp: new Date().toISOString(),
   sseClients: [],
+  // 権限リクエスト (危険操作のみ): { id, tool_name, preview, decision: null|"allow"|"deny" }
+  pendingPermission: null,
 };
 
 state.broadcast = function (data) {
@@ -26,6 +28,30 @@ state.update = function (status, message) {
   this.message = message;
   this.timestamp = new Date().toISOString();
   this.broadcast({ status, message, timestamp: this.timestamp });
+};
+
+// 権限リクエストをSSEでブロードキャスト
+state.broadcastPermission = function (data) {
+  const payload = JSON.stringify(data);
+  this.sseClients = this.sseClients.filter((res) => {
+    try {
+      res.write(`event: permissionRequest\ndata: ${payload}\n\n`);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+};
+
+state.setPermission = function (data) {
+  this.pendingPermission = { ...data, decision: null };
+  this.broadcastPermission(data);
+};
+
+state.resolvePermission = function (id, decision) {
+  if (this.pendingPermission && this.pendingPermission.id === id) {
+    this.pendingPermission.decision = decision;
+  }
 };
 
 module.exports = state;

@@ -67,6 +67,31 @@ function createHttpServer() {
     });
   });
 
+  // ── 権限リクエスト API ──────────────────────────────────────────
+  // 危険操作を permission-notify.js から受け取りUIに通知する
+
+  app.post("/api/permission/request", (req, res) => {
+    const { id, tool_name, preview } = req.body;
+    if (!id) return res.status(400).json({ error: "id is required" });
+    state.setPermission({ id, tool_name: tool_name || "Unknown", preview: preview || "" });
+    res.json({ ok: true });
+  });
+
+  app.get("/api/permission/poll/:id", (req, res) => {
+    const p = state.pendingPermission;
+    if (!p || p.id !== req.params.id) {
+      return res.json({ decision: "deny" }); // 不明なIDは拒否扱い
+    }
+    res.json({ decision: p.decision }); // null | "allow" | "deny"
+  });
+
+  app.post("/api/permission/respond", (req, res) => {
+    const { id, decision } = req.body;
+    if (!id || !decision) return res.status(400).json({ error: "id and decision required" });
+    state.resolvePermission(id, decision);
+    res.json({ ok: true });
+  });
+
   app.listen(PORT, () => {
     console.log(
       `ずんだもんコンパニオン起動なのだ！ → http://localhost:${PORT}`
