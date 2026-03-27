@@ -38,34 +38,24 @@
       <!-- ===== 右パネル: ダッシュボード ===== -->
       <div class="right-panel">
 
-        <!-- ステータス + 接続 -->
-        <div class="dash-section status-section" id="status-section">
-          <div class="status-badge" id="status-badge">
-            <span class="status-dot" id="status-dot"></span>
-            <span id="status-text">待機中</span>
-          </div>
-          <div class="connection-indicator">
-            <span class="conn-dot" id="conn-dot"></span>
-            <span id="conn-text">接続中...</span>
-          </div>
-        </div>
-
-        <!-- 使用量 -->
-        <div class="dash-section usage-section" id="usage-widget">
-          <div class="section-label">◆ 5h 使用量</div>
-          <div class="usage-main-row">
-            <span class="usage-tokens" id="usage-tokens">読込中...</span>
-            <span class="usage-reset" id="usage-reset"></span>
-          </div>
-          <div class="usage-bar-wrap" id="usage-bar-wrap">
+        <!-- 使用量（コンパクト1行） -->
+        <div class="usage-compact" id="usage-widget">
+          <span class="usage-compact-label">◆</span>
+          <span class="usage-compact-tokens" id="usage-tokens">--</span>
+          <div class="usage-compact-bar-wrap" id="usage-bar-wrap">
             <div class="usage-bar" id="usage-bar" style="width: 0%"></div>
           </div>
-          <div class="usage-weekly" id="usage-weekly"></div>
+          <span class="usage-compact-pct" id="usage-pct"></span>
+          <span class="usage-compact-reset" id="usage-reset"></span>
+          <span class="conn-dot" id="conn-dot"></span>
         </div>
 
-        <!-- セッション履歴 -->
+        <!-- セッション一覧 -->
+        <div class="session-list" id="session-list"></div>
+
+        <!-- 直近の作業（選択セッションのみ） -->
         <div class="dash-section history-section">
-          <div class="section-label">📋 直近の作業</div>
+          <div class="section-label">直近の作業</div>
           <div class="history-list" id="history-list">
             <div class="history-empty">まだ作業がありません</div>
           </div>
@@ -86,8 +76,11 @@
         </div>
         <pre class="perm-preview" id="perm-preview"></pre>
         <div class="perm-actions">
-          <button class="perm-btn perm-allow" id="perm-allow">✅ 許可する</button>
-          <button class="perm-btn perm-deny"  id="perm-deny">❌ 拒否する</button>
+          <button class="perm-btn perm-always" id="perm-always">Always allow for project (local) <kbd>Ctrl+↵</kbd></button>
+          <div class="perm-actions-row2">
+            <button class="perm-btn perm-allow" id="perm-allow">一度だけ許可 <kbd>↵</kbd></button>
+            <button class="perm-btn perm-deny" id="perm-deny">拒否 <kbd>Esc</kbd></button>
+          </div>
         </div>
       </div>
 

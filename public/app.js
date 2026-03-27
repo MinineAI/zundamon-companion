@@ -1,9 +1,6 @@
 // ===== 定数 =====
 const STATUSES = ["idle", "working", "complete", "error", "break"];
 
-// ステータス別キャラクター画像
-// 対応する PNG を public/ に置くと自動的に切り替わります
-// 例: zundamon-working.png, zundamon-complete.png など
 const STATUS_IMAGES = {
   idle:     "/zundamon.png",
   working:  "/zundamon-working.png",
@@ -21,7 +18,6 @@ function switchCharacterImage(status) {
   const targetSrc = STATUS_IMAGES[status] || DEFAULT_IMAGE;
   if (targetSrc === currentImageSrc) return;
 
-  // フェードアウト → 画像読み込み → フェードイン
   const testImg = new Image();
   testImg.onload = () => {
     img.classList.add("switching");
@@ -32,7 +28,6 @@ function switchCharacterImage(status) {
     }, 250);
   };
   testImg.onerror = () => {
-    // ステータス別画像がなければデフォルトに戻す
     if (currentImageSrc !== DEFAULT_IMAGE) {
       img.classList.add("switching");
       setTimeout(() => {
@@ -44,15 +39,94 @@ function switchCharacterImage(status) {
   };
   testImg.src = targetSrc;
 }
+
 const STATUS_LABELS = {
-  idle:     "待機中",
-  working:  "作業中",
-  complete: "完了",
-  error:    "エラー",
-  break:    "休憩中",
+  idle:       "待機中",
+  working:    "作業中",
+  complete:   "完了",
+  error:      "エラー",
+  break:      "休憩中",
+  permission: "許可待ち",
 };
 
-const TOKEN_LIMIT = 0; // 0 = プログレスバー非表示
+// ===== マルチセッション =====
+let activeSessions = [];
+let selectedSessionId = null;
+const pendingPermSessionIds = new Set(); // 許可待ちセッション追跡
+
+function relativeTime(ts) {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60)  return "今";
+  if (sec < 3600) return `${Math.floor(sec / 60)}分前`;
+  return `${Math.floor(sec / 3600)}h前`;
+}
+
+// セッションの表示ステータスを決定（許可待ちを優先）
+function getDisplayStatus(session) {
+  if (pendingPermSessionIds.has(session.sessionId)) return "permission";
+  return session.status || "idle";
+}
+
+function renderSessionList(sessions) {
+  const list = document.getElementById("session-list");
+  if (!list) return;
+
+  if (!sessions || sessions.length === 0) {
+    list.innerHTML = '<div class="session-empty">セッションなし</div>';
+    return;
+  }
+
+  list.innerHTML = "";
+  for (const s of sessions) {
+    const card = document.createElement("div");
+    const displayStatus = getDisplayStatus(s);
+    card.className = "session-card" + (s.sessionId === selectedSessionId ? " selected" : "");
+
+    const dot = document.createElement("span");
+    dot.className = "session-card-dot " + displayStatus;
+
+    const name = document.createElement("span");
+    name.className = "session-card-name";
+    const fullName = s.metadata?.slug || s.sessionId.slice(0, 8);
+    name.textContent = fullName.length > 30 ? fullName.slice(0, 30) + "…" : fullName;
+    name.title = fullName;
+
+    const badge = document.createElement("span");
+    badge.className = "session-card-status s-" + displayStatus;
+    badge.textContent = STATUS_LABELS[displayStatus] || displayStatus;
+
+    card.appendChild(dot);
+    card.appendChild(name);
+    card.appendChild(badge);
+
+    card.addEventListener("click", () => selectSession(s.sessionId, s));
+    list.appendChild(card);
+  }
+}
+
+function selectSession(sessionId, sessionData) {
+  selectedSessionId = sessionId;
+  renderSessionList(activeSessions);
+  if (sessionData) {
+    updateUI(sessionData.status, sessionData.message);
+  }
+  renderHistory(); // 選択セッション切替で履歴再描画
+}
+
+function handleSessionsUpdate(sessions) {
+  activeSessions = sessions || [];
+  if (!selectedSessionId && activeSessions.length > 0) {
+    selectedSessionId = activeSessions[0].sessionId;
+  }
+  if (selectedSessionId && !activeSessions.find(s => s.sessionId === selectedSessionId)) {
+    selectedSessionId = activeSessions.length > 0 ? activeSessions[0].sessionId : null;
+  }
+  renderSessionList(activeSessions);
+  if (selectedSessionId) {
+    const sel = activeSessions.find(s => s.sessionId === selectedSessionId);
+    if (sel) updateUI(sel.status, sel.message);
+  }
+}
 
 // ===== 時計 =====
 function updateClock() {
@@ -65,33 +139,41 @@ function updateClock() {
 updateClock();
 setInterval(updateClock, 10000);
 
-// ===== セッション履歴 =====
-const sessionHistory = [];
-let currentStatusStart = Date.now();
-let lastKnownTokens = 0; // 最新の累計トークン数
+// ===== セッション別履歴 =====
+const sessionHistoryMap = new Map(); // sessionId → array
+let currentStatusStartMap = new Map(); // sessionId → timestamp
+let lastKnownTokens = 0;
 
-function addToHistory(status, message) {
+function getSessionHistory(sessionId) {
+  if (!sessionId) return [];
+  if (!sessionHistoryMap.has(sessionId)) sessionHistoryMap.set(sessionId, []);
+  return sessionHistoryMap.get(sessionId);
+}
+
+function addToHistory(status, message, sessionId) {
+  const sid = sessionId || selectedSessionId;
+  if (!sid) return;
+  const history = getSessionHistory(sid);
   const now = Date.now();
-  const elapsed = Math.round((now - currentStatusStart) / 1000);
+  const startTime = currentStatusStartMap.get(sid) || now;
+  const elapsed = Math.round((now - startTime) / 1000);
 
-  // 直前のエントリに duration とトークン差分を記録
-  if (sessionHistory.length > 0) {
-    sessionHistory[0].duration = elapsed;
-    // 前エントリ開始時点からの差分トークン数
-    const delta = lastKnownTokens - (sessionHistory[0].tokensStart || 0);
-    sessionHistory[0].tokensDelta = delta > 0 ? delta : null;
+  if (history.length > 0) {
+    history[0].duration = elapsed;
+    const delta = lastKnownTokens - (history[0].tokensStart || 0);
+    history[0].tokensDelta = delta > 0 ? delta : null;
   }
 
-  sessionHistory.unshift({
+  history.unshift({
     time: new Date(now),
     status,
     message,
     duration: null,
-    tokensStart: lastKnownTokens, // このエントリ開始時点のトークン数
+    tokensStart: lastKnownTokens,
     tokensDelta: null,
   });
-  if (sessionHistory.length > 12) sessionHistory.pop();
-  currentStatusStart = now;
+  if (history.length > 12) history.pop();
+  currentStatusStartMap.set(sid, now);
   renderHistory();
 }
 
@@ -111,11 +193,12 @@ function formatTokensDelta(n) {
 function renderHistory() {
   const list = document.getElementById("history-list");
   if (!list) return;
-  if (sessionHistory.length === 0) {
+  const history = getSessionHistory(selectedSessionId);
+  if (history.length === 0) {
     list.innerHTML = '<div class="history-empty">まだ作業がありません</div>';
     return;
   }
-  list.innerHTML = sessionHistory
+  list.innerHTML = history
     .map((item, i) => {
       const h = String(item.time.getHours()).padStart(2, "0");
       const m = String(item.time.getMinutes()).padStart(2, "0");
@@ -132,109 +215,83 @@ function renderHistory() {
 }
 
 // ===== ステータスUI更新 =====
-function updateUI(status, message) {
+function updateUI(status, message, sessionId) {
   const bubble     = document.getElementById("bubble");
   const bubbleText = document.getElementById("bubble-text");
-  const badge      = document.getElementById("status-badge");
-  const statusText = document.getElementById("status-text");
   const character  = document.getElementById("character");
   const app        = document.getElementById("app");
   const charArea   = document.getElementById("character-area");
-  const statusSec  = document.getElementById("status-section");
 
   bubbleText.textContent = message;
 
-  // クラス付け替え
   STATUSES.forEach((s) => {
     bubble.classList.remove(s);
-    badge.classList.remove(s);
     character.classList.remove(s);
     app.classList.remove(s);
     charArea.classList.remove(s);
-    if (statusSec) statusSec.classList.remove(s);
   });
   bubble.classList.add(status);
-  badge.classList.add(status);
   character.classList.add(status);
   app.classList.add(status);
   charArea.classList.add(status);
-  if (statusSec) statusSec.classList.add(status);
-
-  statusText.textContent = STATUS_LABELS[status] ?? status;
 
   // 吹き出しアニメーションリセット
   bubble.style.animation = "none";
   bubble.offsetHeight;
   bubble.style.animation = "";
 
-  // ステータス別画像切替
   switchCharacterImage(status);
 
   // 履歴追加（ステータスまたはメッセージが変化した場合のみ）
+  const sid = sessionId || selectedSessionId;
+  const history = getSessionHistory(sid);
   if (
-    sessionHistory.length === 0 ||
-    sessionHistory[0].status !== status ||
-    sessionHistory[0].message !== message
+    history.length === 0 ||
+    history[0].status !== status ||
+    history[0].message !== message
   ) {
-    addToHistory(status, message);
+    addToHistory(status, message, sid);
   }
 }
 
-// ===== 使用量ウィジェット =====
+// ===== 使用量ウィジェット（コンパクト） =====
 function formatTokens(n) {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K tok`;
-  return `${n} tok`;
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return `${n}`;
 }
 
 function updateUsageWidget(data) {
   const tokensEl = document.getElementById("usage-tokens");
+  const pctEl    = document.getElementById("usage-pct");
   const resetEl  = document.getElementById("usage-reset");
   const barEl    = document.getElementById("usage-bar");
   const wrapEl   = document.getElementById("usage-bar-wrap");
   const widgetEl = document.getElementById("usage-widget");
-  const weeklyEl = document.getElementById("usage-weekly");
 
   if (!data || data.error || data.totalTokens == null) {
     if (widgetEl) widgetEl.style.opacity = "0.4";
     if (tokensEl) tokensEl.textContent = "--";
+    if (pctEl)    pctEl.textContent    = "";
     if (resetEl)  resetEl.textContent  = "";
     if (barEl)    barEl.style.width    = "0%";
     return;
   }
 
-  // 累計トークン数を更新し、履歴の現在エントリのトークン差分も再描画
   if (data.totalTokens !== lastKnownTokens) {
     lastKnownTokens = data.totalTokens;
-    renderHistory(); // トークン情報を反映して再描画
+    renderHistory();
   }
 
   if (widgetEl) widgetEl.style.opacity = "1";
-  if (tokensEl) tokensEl.textContent = formatTokens(data.totalTokens);
+  if (tokensEl) tokensEl.textContent = formatTokens(data.totalTokens) + " tok";
+  if (pctEl) pctEl.textContent = data.sessionPercent != null ? `${data.sessionPercent}%` : "";
+  if (resetEl) resetEl.textContent = data.remainingFormatted || "";
 
-  if (resetEl) {
-    resetEl.textContent = data.remainingFormatted
-      ? data.remainingFormatted
-      : data.messageCount === 0 ? "使用なし" : "";
-    resetEl.title = data.resetAt
-      ? "5hリセット: " + new Date(data.resetAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-      : "";
-  }
-
-  if (weeklyEl) {
-    weeklyEl.textContent = data.weeklyRemainingFormatted
-      ? "週次 " + data.weeklyRemainingFormatted
-      : "";
-    weeklyEl.title = data.weeklyResetAt
-      ? "週次リセット(火14時JST): " + new Date(data.weeklyResetAt).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })
-      : "";
-  }
-
-  if (TOKEN_LIMIT > 0) {
-    const pct = Math.min(100, (data.totalTokens / TOKEN_LIMIT) * 100);
-    if (barEl)  barEl.style.width      = pct + "%";
-    if (wrapEl) wrapEl.style.display   = "block";
+  if (data.sessionPercent != null) {
+    if (barEl)  barEl.style.width    = data.sessionPercent + "%";
+    if (wrapEl) wrapEl.style.display = "block";
   } else {
-    if (wrapEl) wrapEl.style.display   = "none";
+    if (wrapEl) wrapEl.style.display = "none";
   }
 }
 
@@ -248,39 +305,52 @@ function pollUsage() {
 pollUsage();
 setInterval(pollUsage, 60000);
 
-// ===== 初期ステータス取得 =====
+// ===== 初期ステータス・セッション取得 =====
 fetch("/api/status")
   .then((r) => r.json())
   .then((data) => updateUI(data.status, data.message))
   .catch(() => {});
 
+fetch("/api/sessions")
+  .then((r) => r.json())
+  .then(handleSessionsUpdate)
+  .catch(() => {});
+
 // ===== SSE 接続 =====
 function connectSSE() {
-  const connDot  = document.getElementById("conn-dot");
-  const connText = document.getElementById("conn-text");
-
+  const connDot = document.getElementById("conn-dot");
   const es = new EventSource("/events");
 
   es.addEventListener("statusUpdate", (e) => {
     const data = JSON.parse(e.data);
-    // ステータス変化時に即座に使用量を取得（トークン差分を正確にキャプチャ）
     pollUsage();
-    updateUI(data.status, data.message);
+    // sessionId があればそのセッションのみ更新
+    if (data.sessionId && data.sessionId === selectedSessionId) {
+      updateUI(data.status, data.message, data.sessionId);
+    } else if (!data.sessionId) {
+      updateUI(data.status, data.message);
+    }
+    // 非選択セッションの場合もセッション一覧は更新される（sessionsUpdate で）
   });
 
   es.addEventListener("permissionRequest", (e) => {
     const data = JSON.parse(e.data);
+    if (data.sessionId) pendingPermSessionIds.add(data.sessionId);
+    renderSessionList(activeSessions); // 許可待ちバッジ更新
     showPermSheet(data);
   });
 
+  es.addEventListener("sessionsUpdate", (e) => {
+    const sessions = JSON.parse(e.data);
+    handleSessionsUpdate(sessions);
+  });
+
   es.onopen = () => {
-    if (connDot)  connDot.className    = "conn-dot connected";
-    if (connText) connText.textContent = "接続中";
+    if (connDot) connDot.className = "conn-dot connected";
   };
 
   es.onerror = () => {
-    if (connDot)  connDot.className    = "conn-dot";
-    if (connText) connText.textContent = "切断";
+    if (connDot) connDot.className = "conn-dot";
     es.close();
     setTimeout(connectSSE, 3000);
   };
@@ -290,21 +360,37 @@ connectSSE();
 
 // ===== 権限リクエスト ボトムシート =====
 let _permTimerInterval = null;
+let _permCurrentId = null;
 
-function showPermSheet({ id, tool_name, preview }) {
-  const sheet    = document.getElementById("perm-sheet");
-  const toolEl   = document.getElementById("perm-tool");
-  const previewEl= document.getElementById("perm-preview");
-  const timerEl  = document.getElementById("perm-timer");
-  const allowBtn = document.getElementById("perm-allow");
-  const denyBtn  = document.getElementById("perm-deny");
+function _permKeyHandler(e) {
+  if (!_permCurrentId) return;
+  if (e.key === "Escape") {
+    e.preventDefault();
+    respondPerm(_permCurrentId, "deny");
+  } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+    e.preventDefault();
+    respondPerm(_permCurrentId, "always");
+  } else if (e.key === "Enter") {
+    e.preventDefault();
+    respondPerm(_permCurrentId, "allow");
+  }
+}
+
+function showPermSheet({ id, tool_name, preview, sessionId }) {
+  const sheet     = document.getElementById("perm-sheet");
+  const toolEl    = document.getElementById("perm-tool");
+  const previewEl = document.getElementById("perm-preview");
+  const timerEl   = document.getElementById("perm-timer");
+  const allowBtn  = document.getElementById("perm-allow");
+  const alwaysBtn = document.getElementById("perm-always");
+  const denyBtn   = document.getElementById("perm-deny");
   if (!sheet) return;
 
-  // コンテンツ設定
-  toolEl.textContent    = "🛠 " + (tool_name || "Unknown");
+  _permCurrentId = id;
+
+  toolEl.textContent    = "\u{1F6E0} " + (tool_name || "Unknown");
   previewEl.textContent = (preview || "").slice(0, 120);
 
-  // タイマーリセット
   clearInterval(_permTimerInterval);
   let remaining = 60;
   timerEl.textContent = remaining + "s";
@@ -317,15 +403,16 @@ function showPermSheet({ id, tool_name, preview }) {
     }
   }, 1000);
 
-  // ボタン
-  allowBtn.onclick = () => respondPerm(id, "allow");
-  denyBtn.onclick  = () => respondPerm(id, "deny");
+  allowBtn.onclick  = () => respondPerm(id, "allow");
+  alwaysBtn.onclick = () => respondPerm(id, "always");
+  denyBtn.onclick   = () => respondPerm(id, "deny");
 
-  // キャラクター吹き出しを更新
+  document.removeEventListener("keydown", _permKeyHandler);
+  document.addEventListener("keydown", _permKeyHandler);
+
   const bubble = document.getElementById("bubble-text");
-  if (bubble) bubble.textContent = "\u78ba\u8a8d\u3057\u3066\u307b\u3057\u3044\u306e\u3060\uff01";
+  if (bubble) bubble.textContent = "確認してほしいのだ！";
 
-  // シートを開く
   sheet.classList.add("open");
   sheet.setAttribute("aria-hidden", "false");
 }
@@ -334,11 +421,22 @@ function hidePermSheet() {
   const sheet = document.getElementById("perm-sheet");
   if (!sheet) return;
   clearInterval(_permTimerInterval);
+  _permCurrentId = null;
+  document.removeEventListener("keydown", _permKeyHandler);
   sheet.classList.remove("open");
   sheet.setAttribute("aria-hidden", "true");
 }
 
 async function respondPerm(id, decision) {
+  // 許可待ちを解除
+  // permissionRequest SSEデータからsessionIdを見つける
+  for (const s of activeSessions) {
+    if (pendingPermSessionIds.has(s.sessionId)) {
+      pendingPermSessionIds.delete(s.sessionId);
+    }
+  }
+  renderSessionList(activeSessions);
+
   hidePermSheet();
   try {
     await fetch("/api/permission/respond", {

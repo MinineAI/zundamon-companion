@@ -6,6 +6,19 @@ const readline = require("readline");
 const CLAUDE_PROJECTS_DIR = path.join(os.homedir(), ".claude", "projects");
 const WINDOW_MS = 5 * 60 * 60 * 1000; // 5時間
 const CACHE_TTL_MS = 60 * 1000;        // 1分キャッシュ
+const CONFIG_PATH = path.join(__dirname, "config.json");
+
+function loadConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
+  } catch {
+    return { sessionLimitTokens: 0 };
+  }
+}
+
+function saveConfig(cfg) {
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2), "utf8");
+}
 
 // ── 固定スケジュールのアンカー ──────────────────────────────────────────────
 // 5hウィンドウは UTC深夜0時を起点に 00:00/05:00/10:00/15:00/20:00 UTC でリセット
@@ -114,12 +127,19 @@ async function calculateUsage() {
     cacheReadTokens     += usage.cache_read_input_tokens     || 0;
   }
 
+  const totalTokens = inputTokens + outputTokens + cacheCreationTokens;
+  const cfg = loadConfig();
+  const limit = cfg.sessionLimitTokens || 0;
+  const sessionPercent = limit > 0 ? Math.min(100, Math.round(totalTokens / limit * 100)) : null;
+
   return {
-    totalTokens: inputTokens + outputTokens + cacheCreationTokens,
+    totalTokens,
     inputTokens,
     outputTokens,
     cacheCreationTokens,
     cacheReadTokens,
+    sessionPercent,
+    sessionLimitTokens: limit,
     windowStart:        new Date(windowStart).toISOString(),
     resetAt:            new Date(resetAt).toISOString(),
     remainingMs:        Math.max(0, remainingMs),
@@ -149,4 +169,51 @@ async function getUsage() {
   return data;
 }
 
-module.exports = { getUsage, formatRemaining };
+// ── セッションメタデータ抽出 ───────────────────────────────────────────
+// .jsonl の最初の user メッセージからタイトルと cwd を取得
+async function getSessionMeta(sessionId) {
+  if (!sessionId) return null;
+  if (!fs.existsSync(CLAUDE_PROJECTS_DIR)) return null;
+
+  for (const proj of fs.readdirSync(CLAUDE_PROJECTS_DIR)) {
+    const filePath = path.join(CLAUDE_PROJECTS_DIR, proj, `${sessionId}.jsonl`);
+    if (!fs.existsSync(filePath)) continue;
+
+    let slug = null;
+    let cwd = null;
+    try {
+      const stream = fs.createReadStream(filePath, { encoding: "utf8" });
+      const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+      for await (const line of rl) {
+        if (!line.trim()) continue;
+        try {
+          const obj = JSON.parse(line);
+          // cwd はシステム行に含まれる場合がある
+          if (obj.cwd && !cwd) cwd = obj.cwd;
+          // 最初の user メッセージをタイトルとして使う
+          if (obj.cwd && !cwd) cwd = obj.cwd;
+          // 最初の user メッセージ本文をタイトルとして使う（GUI と一致）
+          if (obj.type === "user" && !slug) {
+            const content = obj.message?.content;
+            let text = "";
+            if (typeof content === "string") {
+              text = content;
+            } else if (Array.isArray(content)) {
+              text = content.find(c => c.type === "text")?.text || "";
+            }
+            // URL や長い前置きを除いて最初の意味ある行を取る
+            const lines = text.split("\n").map(l => l.trim()).filter(l => l && !l.startsWith("http"));
+            slug = (lines[0] || text).slice(0, 50).trim() || null;
+          }
+          if (slug && cwd) break;
+        } catch {}
+      }
+      rl.close();
+    } catch {}
+
+    return { slug, cwd, projectFolder: proj };
+  }
+  return null;
+}
+
+module.exports = { getUsage, formatRemaining, loadConfig, saveConfig, getSessionMeta };
