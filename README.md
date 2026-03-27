@@ -4,7 +4,7 @@ Claude Code と一緒に作業するずんだもんのビジュアルコンパ�
 
 リアルタイムで作業状況を表示し、VOICEVOX で音声通知もしてくれるのだ。
 
-![ずんだもんコンパニオン UI](docs/screenshot-session.png)
+![ずんだもんコンパニオン UI](docs/screenshot-full.png)
 
 ---
 

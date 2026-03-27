@@ -21,9 +21,10 @@ function saveConfig(cfg) {
 }
 
 // ── 固定スケジュールのアンカー ──────────────────────────────────────────────
-// 5hウィンドウは UTC深夜0時を起点に 00:00/05:00/10:00/15:00/20:00 UTC でリセット
-// JST換算: 09:00/14:00/19:00/00:00/05:00 JST
-const ANCHOR_UTC_MS = Date.UTC(2026, 2, 26, 0, 0, 0); // 2026-03-26T00:00:00Z (UTC midnight)
+// MAX5X プラン: 5hウィンドウは 19:00/00:00/05:00/10:00/15:00 UTC でリセット
+// JST換算: 04:00/09:00/14:00/19:00/00:00 JST
+// 2026-03-28 JST 04:00 にリセット確認済み → UTC 2026-03-27 19:00 をアンカーに設定
+const ANCHOR_UTC_MS = Date.UTC(2026, 2, 27, 19, 0, 0); // 2026-03-27T19:00:00Z
 
 // 現在時刻から「今の5hウィンドウ」の開始時刻を計算
 function getWindowStart(now) {
@@ -37,17 +38,18 @@ function getNextReset(now) {
   return getWindowStart(now) + WINDOW_MS;
 }
 
-// ── 週次リセット: 毎週火曜日 14:00 JST = 05:00 UTC ──────────────────────────
+// ── 週次リセット: 毎週金曜日 23:00 JST = 14:00 UTC ──────────────────────────
+// MAX5X プラン: 来週金曜日 23:00 JST (= UTC 14:00) でリセット
 function getNextWeeklyReset(now) {
   const d = new Date(now);
-  const utcDay  = d.getUTCDay();   // 0=Sun,1=Mon,2=Tue,...
+  const utcDay  = d.getUTCDay();   // 0=Sun,1=Mon,...,5=Fri,6=Sat
   const utcHour = d.getUTCHours();
   const utcMin  = d.getUTCMinutes();
 
-  // 今週の火曜日 05:00 UTC までの日数
-  let days = (2 - utcDay + 7) % 7;
-  // 今日が火曜でかつ 05:00 UTC を過ぎていたら来週
-  if (days === 0 && (utcHour > 5 || (utcHour === 5 && utcMin > 0))) {
+  // 今週の金曜日 14:00 UTC までの日数
+  let days = (5 - utcDay + 7) % 7;
+  // 今日が金曜でかつ 14:00 UTC を過ぎていたら来週
+  if (days === 0 && (utcHour > 14 || (utcHour === 14 && utcMin > 0))) {
     days = 7;
   }
 
@@ -55,7 +57,7 @@ function getNextWeeklyReset(now) {
     d.getUTCFullYear(),
     d.getUTCMonth(),
     d.getUTCDate() + days,
-    5, 0, 0, 0   // 05:00 UTC = 14:00 JST
+    14, 0, 0, 0   // 14:00 UTC = 23:00 JST
   );
 }
 

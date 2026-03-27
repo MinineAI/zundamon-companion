@@ -8,8 +8,9 @@ const PORT = 3456;
 
 function createHttpServer() {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: "20mb" }));
   app.use(express.static(path.join(__dirname, "../public")));
+
 
   // 現在状態の取得（初期値用）
   app.get("/api/status", (req, res) => {
@@ -105,6 +106,14 @@ function createHttpServer() {
     const sessions = state.getActiveSessions(expireMs);
     if (sessions.length > 0) {
       res.write(`event: sessionsUpdate\ndata: ${JSON.stringify(sessions)}\n\n`);
+    }
+
+    // 接続時に未解決の権限リクエストも送信（再接続時にシートを復元）
+    for (const [, perm] of state.pendingPermissions) {
+      if (perm.decision === null) {
+        res.write(`event: permissionRequest\ndata: ${JSON.stringify(perm)}\n\n`);
+        break; // 最初の1件のみ
+      }
     }
 
     state.sseClients.push(res);
