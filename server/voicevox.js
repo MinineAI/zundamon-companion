@@ -68,13 +68,16 @@ function truncName(name, max = 20) {
   return name.length <= max ? name : name.slice(0, max);
 }
 
-// 重複防止
+// 重複防止（5秒以内の同一イベントはスキップ）
 let lastEvent = null; // "sessionId:eventType"
+let lastEventTimer = null;
 
 function isDuplicate(sessionId, eventType) {
   const key = `${sessionId || ""}:${eventType}`;
   if (key === lastEvent) return true;
   lastEvent = key;
+  clearTimeout(lastEventTimer);
+  lastEventTimer = setTimeout(() => { lastEvent = null; }, 5000);
   return false;
 }
 
@@ -92,7 +95,7 @@ function notifySessionComplete(sessionName, sessionId) {
   speak(name ? `${name}セッションが完了したのだ` : "作業が完了したのだ");
 }
 
-function notifyPermission(sessionName, sessionId) {
+function notifyPermission(sessionName, sessionId, toolName) {
   if (isDuplicate(sessionId, "permission")) return;
   const name = truncName(sessionName);
   speak(name ? `${name}セッションが確認を求めているのだ` : "確認を求めているのだ");

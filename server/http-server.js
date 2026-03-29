@@ -126,17 +126,25 @@ function createHttpServer() {
   // ── 権限リクエスト API ──────────────────────────────────────────────
 
   app.post("/api/permission/request", (req, res) => {
-    const { id, tool_name, preview, sessionId } = req.body;
+    const { id, tool_name, preview, sessionId, voiceOnly } = req.body;
     if (!id) return res.status(400).json({ error: "id is required" });
+
+    const slug = sessionId ? (state.sessions.get(sessionId)?.metadata?.slug || null) : null;
+
+    if (voiceOnly) {
+      // 音声のみ（UIシートは表示しない）— 非危険操作の通知用
+      notifyPermission(slug, sessionId, tool_name);
+      return res.json({ ok: true });
+    }
+
     state.setPermission({
       id,
       tool_name: tool_name || "Unknown",
       preview: preview || "",
       sessionId: sessionId || null,
     });
-    // 音声通知: 許可待ち
-    const slug = sessionId ? (state.sessions.get(sessionId)?.metadata?.slug || null) : null;
-    notifyPermission(slug, sessionId);
+    // 音声通知: 許可待ち（UIシートも表示）
+    notifyPermission(slug, sessionId, tool_name);
     res.json({ ok: true });
   });
 
